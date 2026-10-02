@@ -1,0 +1,3 @@
+# Dependencias para las pruebas de las tools (las de ejecución están en requirements.txt)
+-r requirements.txt
+pytest==9.1.1

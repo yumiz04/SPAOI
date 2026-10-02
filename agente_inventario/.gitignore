@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+.env
+e2e_report.json
+memoria_large.py
