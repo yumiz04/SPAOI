@@ -1,0 +1,45 @@
+services:
+  db:
+    build: ./AdventureWorks-for-Postgres-master
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./inventory_backend
+    env_file: ./inventory_backend/.env
+    environment:
+      DB_HOST: db
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: sh -c "python manage.py migrate && python manage.py setup_roles && python manage.py ensure_superuser && gunicorn config.wsgi:application -b 0.0.0.0:8000 -w 3"
+
+  agent:
+    build: ./agente_inventario
+    env_file:
+      - ./agente_inventario/.env
+    environment:
+      INVENTORY_API_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8090:8080"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - agent
+    ports:
+      - "5173:80"
