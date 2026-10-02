@@ -1,0 +1,9 @@
+Django>=5.2,<5.3
+djangorestframework>=3.16
+django-filter>=24.3
+drf-spectacular>=0.27
+djangorestframework-simplejwt>=5.3
+django-environ>=0.11
+psycopg[binary]>=3.2
+gunicorn>=22
+pydantic>=2.7

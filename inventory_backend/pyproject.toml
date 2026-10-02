@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+# Sin --reuse-db: las apps de AdventureWorks no tienen migraciones, así que pytest-django
+# las crea con run_syncdb al armar la BD de pruebas. Reutilizarla reejecutaría syncdb y
+# fallaría con "relation ... already exists".
+addopts = "-q"
+markers = [
+    "aw: requiere una BD con AdventureWorks real",
+]
+
+[tool.coverage.run]
+source = ["apps"]
+omit = ["*/migrations/*", "*/tests/*", "*/apps.py", "*/admin.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
