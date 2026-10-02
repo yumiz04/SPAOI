@@ -1,0 +1,193 @@
+@import 'tailwindcss';
+
+/*
+  Modo oscuro por variables CSS en lugar de variantes `dark:` en cada componente.
+  Se define una sola vez el conjunto de tokens y `.dark` los sobreescribe, en vez de
+  duplicar clases en el JSX. El resultado visual es el mismo y el tema queda
+  centralizado en este archivo.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Superficies y texto */
+  --color-canvas: #f3f5f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f9fc;
+  --color-surface-3: #eef2f7;
+  --color-line: #dde3ec;
+  --color-line-strong: #c6d0de;
+  --color-ink: #0f172a;
+  --color-ink-muted: #4a5769;
+  --color-ink-faint: #8695a8;
+
+  /* Marca */
+  --color-brand: #0d7a5f;
+  --color-brand-strong: #0a624c;
+  --color-brand-ink: #ffffff;
+  --color-brand-soft: #e3f3ed;
+
+  /* Estados */
+  --color-ok: #15803d;
+  --color-ok-soft: #e4f5e9;
+  --color-warn: #a4620a;
+  --color-warn-soft: #fdf1dc;
+  --color-danger: #b4261f;
+  --color-danger-soft: #fdeceb;
+
+  /* Radios y sombras */
+  --radius-card: 0.875rem;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -12px rgb(15 23 42 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.06), 0 18px 40px -18px rgb(15 23 42 / 0.24);
+}
+
+.dark {
+  --color-canvas: #0a0f1a;
+  --color-surface: #121a2b;
+  --color-surface-2: #182238;
+  --color-surface-3: #1f2b45;
+  --color-line: #26324c;
+  --color-line-strong: #35435f;
+  --color-ink: #e9eefa;
+  --color-ink-muted: #a4b1c7;
+  --color-ink-faint: #6e7d96;
+
+  --color-brand: #3ddc9a;
+  --color-brand-strong: #6ee7b7;
+  --color-brand-ink: #06251b;
+  --color-brand-soft: #0f3328;
+
+  --color-ok: #4ade80;
+  --color-ok-soft: #102a1c;
+  --color-warn: #fbbf24;
+  --color-warn-soft: #2e2410;
+  --color-danger: #f87171;
+  --color-danger-soft: #2f1618;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  /* Accesibilidad: respeta la preferencia de menos movimiento. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Punto animado del indicador "pensando". */
+  .thinking-dot {
+    animation: thinking-bounce 1.1s infinite ease-in-out;
+  }
+
+  .thinking-dot:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .thinking-dot:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  /*
+    Las respuestas largas generates varias burbujas; content-visibility evita que el
+    navegador maquete las que estan fuera de pantalla.
+  */
+  .msg-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+
+  /*
+    Tablas markdown del agente: encabezado fijo, separadores suaves y guion para
+    celdas vacias, para que una respuesta con datos nunca se vea como texto suelto.
+  */
+  .md-table th,
+  .md-table td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .md-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--color-surface-3);
+    border-bottom: 1px solid var(--color-line-strong);
+    color: var(--color-ink);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .md-table tbody td {
+    border-top: 1px solid var(--color-line);
+    color: var(--color-ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .md-table tbody tr:hover td {
+    background-color: var(--color-surface-2);
+  }
+
+  .md-table td strong {
+    color: var(--color-ink);
+  }
+
+  .md-table td code {
+    background-color: var(--color-surface-3);
+    border-radius: 0.25rem;
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.05rem 0.3rem;
+  }
+
+  .md-table td:empty::after {
+    color: var(--color-ink-faint);
+    content: '\2014';
+  }
+}
+
+@keyframes thinking-bounce {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+
+  35% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
