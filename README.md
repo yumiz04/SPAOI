@@ -5,7 +5,7 @@
 **Base de datos:** AdventureWorks PostgreSQL  
 **Tipo de sistema:** Aplicación web con agente inteligente para análisis de inventarios
 
-> ## Guía operativa (implementación real)
+> ## Guía operativa
 >
 > Este documento contiene la **especificación** (SRS) y, a partir de la
 > [sección 24](#24-cómo-funciona-el-sistema), la **guía de operación** del sistema ya
@@ -1058,53 +1058,7 @@ Para la primera versión no se contempla:
 
 Estas funcionalidades podrán incorporarse en versiones posteriores.
 
----
-
-# 22. Evolución propuesta
-
-### Versión 1.0
-
-- Integración con AdventureWorks.
-- Consultas de inventario.
-- Ventas.
-- Compras.
-- Proveedores.
-- Movimientos.
-- Herramientas básicas del agente.
-
-### Versión 1.1
-
-- Lotes.
-- Caducidades.
-- Alertas.
-- Umbrales configurables.
-
-### Versión 1.2
-
-- Análisis de rotación.
-- Sobreinventario.
-- Riesgo de desabasto.
-- Fecha estimada de agotamiento.
-
-### Versión 2.0
-
-- Pronóstico de demanda.
-- Reposición.
-- Redistribución.
-- Dashboard avanzado.
-- Historial de recomendaciones.
-
-### Versión 3.0
-
-- Modelos predictivos especializados.
-- Optimización de inventario.
-- Detección de anomalías.
-- Aprendizaje a partir del comportamiento histórico.
-- Integración con sistemas empresariales externos.
-
----
-
-# 23. Resumen de arquitectura de información
+# 22. Resumen de arquitectura de información
 
 La solución final puede entenderse como:
 
@@ -1167,16 +1121,16 @@ La separación anterior permite que **AdventureWorks funcione como núcleo de da
 
 ---
 
-# 24. Cómo funciona el sistema
+# 23. Cómo funciona el sistema
 
-## 24.1 Resumen en una frase
+## 23.1 Resumen en una frase
 
 Es un **chat web** en el que preguntas en lenguaje natural sobre el inventario; un **agente
 de IA** decide qué datos consultar; una **API Django/DRF** ejecuta los cálculos reales
 sobre **PostgreSQL + AdventureWorks**; y el agente te responde con tablas y explicaciones.
 El modelo de lenguaje **nunca inventa cifras**: solo orchestra consultas.
 
-## 24.2 Componentes del repositorio
+## 23.2 Componentes del repositorio
 
 ```text
 Inventory_System/
@@ -1206,7 +1160,7 @@ Inventory_System/
     └── Dockerfile                     # Multi-etapa: Node compila, nginx sirve
 ```
 
-## 24.3 Topología de ejecución (Docker)
+## 23.3 Topología de ejecución (Docker)
 
 ```text
                         NAVEGADOR
@@ -1259,7 +1213,7 @@ Inventory_System/
 | AdventureWorks es `managed=False` | El sistema **no** modifica los datos originales de la empresa |
 | Todo cálculo analítico ocurre en SQL/Python | El LLM redacta, **nunca** calcula (regla RN-09) |
 
-## 24.4 Las 13 apps del backend
+## 23.4 Las 13 apps del backend
 
 | App | Responsabilidad | Endpoints principales |
 |---|---|---|
@@ -1277,7 +1231,7 @@ Inventory_System/
 | `dashboard` | Resumen consolidado cacheado 120 s | `/api/dashboard/summary` |
 | `agent` | 19 herramientas con JSON Schema, validación pydantic y `ToolLog` | `/api/agent/tools`, `/api/agent/tools/{name}/execute` |
 
-## 24.5 Flujo completo de una pregunta (ejemplo real)
+## 23.5 Flujo completo de una pregunta (ejemplo real)
 
 Usuario escribe en el chat: **"¿Qué productos debería reponer primero?"**
 
@@ -1323,7 +1277,7 @@ Usuario escribe en el chat: **"¿Qué productos debería reponer primero?"**
 **Punto clave:** una sola pregunta puede disparar **varias** herramientas y varias rondas.
 El bucle está acotado a 8 rondas; si no converge, el agente lo dice en lugar de inventar.
 
-## 24.6 Las 19 herramientas del agente
+## 23.6 Las 19 herramientas del agente
 
 Todas se invocan por el mismo endpoint genérico
 `POST /api/agent/tools/{nombre}/execute`. 17 son de **solo lectura**; 2 escriben.
@@ -1365,7 +1319,7 @@ Todas se invocan por el mismo endpoint genérico
 | `*.severidad` | `BAJA`, `MEDIA`, `ALTA`, `CRITICA` |
 | `obtener_alertas.estado` | `PENDIENTE`, `ATENDIDA`, `DESCARTADA` |
 
-## 24.7 Cómo se calculan las métricas (sin intervención del LLM)
+## 23.7 Cómo se calculan las métricas (sin intervención del LLM)
 
 Todas las métricas usan `as_of_date()` como "hoy", es decir `ANALYSIS_AS_OF_DATE`. Por eso
 los resultados son **reproducibles** y no dependen del día en que consultas.
@@ -1385,7 +1339,7 @@ los resultados son **reproducibles** y no dependen del día en que consultas.
 **Precedencia de umbrales:** `producto` > `categoría` > `global` > valores por defecto.
 Puedes cambiarla en caliente con `PATCH /api/risk-config` sin tocar código.
 
-## 24.8 Autenticación, roles y seguridad
+## 23.8 Autenticación, roles y seguridad
 
 | Capa | Mecanismo |
 |---|---|
@@ -1411,24 +1365,9 @@ Puedes cambiarla en caliente con `PATCH /api/risk-config` sin tocar código.
 | Trazabilidad | Cada tool se registra en `agent_tool_log`; cada análisis en `analisis` |
 | Rotación de logs | `purge_tool_logs` borra trazas mayores a `AGENT_TOOL_LOG_RETENTION_DAYS` (180) |
 
-## 24.9 Comportamiento del frontend
+# 24. Instalación del sistema
 
-- Un solo origen: nginx hace proxy de `/agent/` hacia el servicio del agente, así que
-  nunca hay CORS entre navegador y agente.
-- El historial vive en el agente, indexado por `session_id`. El botón **Nueva
-  conversación** genera un id nuevo y llama a `/chat/reset`.
-- Cada envío cancela la petición en vuelo con `AbortController`: no se cruzan respuestas.
-  El botón **Detener** aborta la consulta.
-- Las respuestas se renderizan como **Markdown con tablas GFM**, que es el formato real que
-  devuelve el agente.
-- Tema claro/oscuro persistido en `localStorage`, aplicado antes del primer pintado.
-- `nginx` sube los timeouts a 180 s porque el agente puede tardar entre 10 y 120 s.
-
----
-
-# 25. Instalación del sistema
-
-## 25.1 Requisitos previos
+## 24.1 Requisitos previos
 
 | Componente | Versión | Necesario para |
 |---|---|---|
@@ -1438,12 +1377,12 @@ Puedes cambiarla en caliente con `PATCH /api/risk-config` sin tocar código.
 | PostgreSQL | 15+ con el dump de AdventureWorks | Solo si vas a usar una BD propia |
 | Espacio en disco | ~3 GB | Dump de AdventureWorks + imágenes |
 
-## 25.2 Opción A — Todo con Docker (recomendada)
+## 24.2 Opción A — Todo con Docker (recomendada)
 
-### 25.2.1 Preparar la configuración (sin credenciales en el repo)
+### 24.2.1 Preparar la configuración (sin credenciales en el repo)
 
-Cada componente lee su propio `.env`, ignorado por git. Crea los tres a partir de las
-plantillas o desde cero con **tus propios valores**:
+Cada componente lee su propio `.env` (Variables de entorno), ignorado por git. Crea los tres a partir de las
+plantillas (renombra las de .env.examples -> .env) o desde cero con **tus propios valores**:
 
 | Archivo | Variables que debe definir |
 |---|---|
@@ -1451,14 +1390,7 @@ plantillas o desde cero con **tus propios valores**:
 | `agente_inventario/.env` | `API_OPENCODE_KEY`, `API_OPENCODE_URL`, `API_OPENCODE_MODEL`, `API_OPENCODE_MAX_TOKENS`, `INVENTORY_API_URL`, `INVENTORY_API_USER`, `INVENTORY_API_PASSWORD`, `AGENT_CORS_ORIGINS` (opcional) |
 | `frontend/.env` (opcional) | `VITE_AGENT_BASE_URL` solo si sirves el build en otro dominio |
 
-```powershell
-# Plantilla del backend
-Copy-Item inventory_backend\.env.example inventory_backend\.env
-notepad inventory_backend\.env      # rellena con tus valores
-notepad agente_inventario\.env      # credenciales del proveedor de IA
-```
-
-Detalles importantes, **sin exponer valores**:
+Detalles importantes:
 
 - `DB_NAME` debe coincidir con la base que crea el dump de AdventureWorks: **`Adventureworks`**.
 - `DB_USER` / `DB_PASSWORD` deben ser las credenciales reales del servidor PostgreSQL
@@ -1475,36 +1407,35 @@ Detalles importantes, **sin exponer valores**:
 - En Docker, el compose sobrescribe `INVENTORY_API_URL` a `http://api:8000`, `DB_HOST` a
   `db` y `DJANGO_SETTINGS_MODULE` a `config.settings.production`.
 
-### 25.2.2 Levantar la plataforma
+### 24.2.2 Levantar la plataforma
 
 ```powershell
-cd C:\Servicios_IA\Inventory_System
+cd C:\~~\Inventory_System
 docker compose up -d --build
 ```
 
 La primera vez tarda varios minutos: compila la imagen de AdventureWorks, la del backend y
-la del agente, y el frontend (que además ejecuta `tsc --noEmit` dentro del build). Las
-siguientes son segundos.
+la del agente, y el frontend. Las siguientes son segundos.
 
 El arranque hace, en orden:
 
 ```text
-db      → importa el dump de AdventureWorks (solo la primera vez, en un volumen)
-api     → migrate  →  setup_roles  →  ensure_superuser  →  gunicorn (3 workers)
-agent   → uvicorn en :8080
-frontend→ nginx sirviendo dist/ en :80
+db → importa el dump de AdventureWorks
+api → migrate → setup_roles → ensure_superuser → gunicorn
+agent → uvicorn en :8080
+frontend → nginx sirviendo en :80
 ```
 
-### 25.2.3 Verificar que todo está arriba
+### 24.2.3 Verificar que todo está arriba
 
 ```powershell
 docker compose ps
 # los 4 servicios "Up"; "db" debe aparecer como (healthy)
-
-docker compose logs --tail 20 api      # debe terminar con el arranque de gunicorn
+docker compose logs --tail 20 api      
+# debe terminar con el arranque de gunicorn
 docker compose logs --tail 20 agent
 
-Invoke-RestMethod http://localhost:8090/health   # {"status":"ok"}
+http://localhost:8090/health   # {"status":"ok"}
 ```
 
 | Comprobación | Cómo | Resultado esperado |
@@ -1514,7 +1445,7 @@ Invoke-RestMethod http://localhost:8090/health   # {"status":"ok"}
 | Agente vivo | `curl http://localhost:8090/health` | `{"status":"ok"}` |
 | Frontend vivo | abrir <http://localhost:5173> | Pantalla de chat con sugerencias |
 
-### 25.2.4 Cargar datos propios (recomendado para la demo)
+### 24.2.4 Cargar datos propios (recomendado para la demo)
 
 El compose aplica las migraciones, pero **no** siembra datos propios de la capa inteligente.
 Para ver lotes, alertas y caducidades con contenido:
@@ -1532,96 +1463,7 @@ docker compose exec api python manage.py generate_alerts --dry-run   # solo info
 docker compose exec api python manage.py purge_tool_logs --dry-run
 ```
 
-### 25.2.5 Comandos de operación
-
-```powershell
-docker compose ps                      # estado
-docker compose logs -f agent           # ver qué herramientas ejecuta el agente
-docker compose logs --tail 40 api
-docker compose restart agent           # reiniciar solo el agente
-docker compose up -d --build frontend  # reconstruir solo el frontend
-docker compose down                    # parar todo (conserva la base)
-docker compose down -v                 # parar y BORRAR la base (empezar de cero)
-```
-
-## 25.3 Opción B — Instalación local sin Docker
-
-Útil para depurar el backend o el agente en el host.
-
-### 25.3.1 Base de datos
-
-```powershell
-# Opción 1: solo la base, con el compose de AdventureWorks
-cd C:\Servicios_IA\Inventory_System\AdventureWorks-for-Postgres-master
-docker compose up -d
-# La primera vez importa el dump; espera a que termine.
-
-# Opción 2: PostgreSQL propio
-#   1) crea la base "Adventureworks"
-#   2) carga el dump del repositorio de AdventureWorks (install.sql)
-#   3) verifica:
-psql -h localhost -U <tu_usuario> -d Adventureworks -c "select count(*) from production.product;"
-```
-
-### 25.3.2 Backend
-
-```powershell
-cd C:\Servicios_IA\Inventory_System\inventory_backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1            # Linux/macOS: source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements\dev.txt
-
-Copy-Item .env.example .env
-notepad .env                            # pon aquí tus credenciales
-
-python manage.py migrate                # crea inventory_agent.* (lotes, alertas, logs…)
-python manage.py setup_roles            # grupos: viewer, analyst, inventory_manager
-python manage.py ensure_superuser       # crea/actualiza el admin desde DJANGO_SUPERUSER_*
-
-python manage.py seed_lots              # opcional: datos de ejemplo
-python manage.py generate_alerts        # opcional: alertas reales
-
-python manage.py runserver 0.0.0.0:8000
-```
-
-> `ensure_superuser` es **idempotente**: crea el usuario si no existe y actualiza su
-> contraseña si sí existe. Alternativa interactiva: `python manage.py createsuperuser`
-> (esa variante no asigna roles;.asígnalos desde `/admin/`).
-
-### 25.3.3 Agente
-
-```powershell
-cd C:\Servicios_IA\Inventory_System\agente_inventario
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-pip install -r requirements-dev.txt       # solo para los tests
-
-notepad .env                              # proveedor de IA + credenciales de la API
-
-# Consola interactiva (sin HTTP)
-.\venv\Scripts\python.exe agente.py
-
-# API HTTP en :8080
-.\venv\Scripts\python.exe -m uvicorn api:app --port 8080
-```
-
-En local, `INVENTORY_API_URL` debe apuntar a `http://localhost:8000` (no a `http://api:8000`,
-que solo existe dentro de la red de Docker).
-
-### 25.3.4 Frontend
-
-```powershell
-cd C:\Servicios_IA\Inventory_System\frontend
-npm install
-npm run dev          # http://localhost:5173, con proxy /agent → http://localhost:8090
-```
-
-Si el agente corre en `:8080` en el host, edita `AGENT_TARGET` en `vite.config.ts` para que
-apunte a `http://localhost:8080`.
-
-### 25.3.5 Tabla resumen de puertos
+### 24.3.5 Tabla resumen de puertos
 
 | Servicio | Host (Docker) | Host (local) | Contenedor |
 |---|---|---|---|
@@ -1630,41 +1472,10 @@ apunte a `http://localhost:8080`.
 | Agente FastAPI | **8090** | 8080 | 8080 |
 | Frontend | 5173 | 5173 | 80 |
 
-> Usa el **8090** desde el host con Docker: el compose lo publica ahí a propósito porque el
-> 8080 del host suele estar ocupado por Apache. El síntoma del puerto equivocado es un
-> `404` con `Server: Apache` que hace creer que el agente está caído.
 
-## 25.4 Pruebas automatizadas
+# 25. Cómo acceder al sistema
 
-```powershell
-# Backend: unitarias, integración y arquitectura
-cd inventory_backend
-python -m pytest
-python -m pytest --cov=apps --cov-report=term-missing
-
-# Agente: unitarias de las tools + integración contra la API
-cd agente_inventario
-python -m pytest
-
-# E2E del agente: 19 prompts contra el LLM y la API reales
-# (requiere backend levantado; escribe e2e_report.json)
-python e2e_runner.py
-
-# Frontend: typecheck + build de producción
-cd frontend
-npm run typecheck
-npm run build
-```
-
-El `e2e_runner.py` es la forma más objetiva de comprobar el sistema completo: por cada
-prompt reporta qué herramientas se invocaron, con qué argumentos, si respondieron con
-`success=true` y cuánto tardaron.
-
----
-
-# 26. Cómo acceder al sistema
-
-## 26.1 El acceso principal: el chat web
+## 25.1 El acceso principal: el chat web
 
 | | |
 |---|---|
@@ -1691,69 +1502,7 @@ Qué puedes hacer desde ahí:
 varias herramientas y varias rondas del modelo. La UI lo indica con "Consultando el
 inventario".
 
-## 26.2 Acceso directo al agente por HTTP
-
-Útil para integraciones, Postman/Insomnia o pruebas automatizadas.
-
-```powershell
-# Salud del servicio
-curl http://localhost:8090/health
-# {"status":"ok"}
-
-# Pregunta
-curl -X POST http://localhost:8090/chat `
-     -H "Content-Type: application/json" `
-     -d '{"message":"Dame un panorama general del inventario","session_id":"demo"}'
-
-# Reiniciar el contexto de una sesión
-curl -X POST http://localhost:8090/chat/reset `
-     -H "Content-Type: application/json" `
-     -d '{"session_id":"demo"}'
-```
-
-| Campo | Tipo | Obligatorio | Default | Descripción |
-|---|---|:-:|---|---|
-| `message` | string | sí | — | Mínimo 1 carácter; si es solo espacios → **400** |
-| `session_id` | string | no | `default` | Agrupa conversaciones; el historial dura mientras viva el proceso |
-
-| Endpoint | Método | Descripción |
-|---|---|---|
-| `/health` | GET | Estado del servicio |
-| `/chat` | POST | Envía un mensaje y recibe la respuesta |
-| `/chat/reset` | POST | Olvida el historial de una sesión |
-| `/docs` | GET | Documentación interactiva de FastAPI |
-
-Errores: **422** si falta `message` o no cumple el esquema; **400** si el mensaje está vacío.
-
-> En clientes HTTP sube el timeout a **300000 ms (5 min)**. Con el valor por defecto (30 s)
-> las peticiones largas fallan aunque el agente esté funcionando, y el error aparece como
-> `ETIMEDOUT` o "socket hang up" en lugar de un error del agente.
-
-## 26.3 Acceso a la API REST
-
-Prefijo común `/api`. Requiere JWT en **todas** las rutas salvo `auth/*`.
-
-### 26.3.1 Obtener un token
-
-```powershell
-curl -X POST http://localhost:8000/api/auth/token `
-     -H "Content-Type: application/json" `
-     -d '{"username":"<tu_usuario>","password":"<tu_contraseña>"}'
-```
-
-```json
-{
-  "success": true,
-  "data": { "access": "<JWT>", "refresh": "<JWT>" },
-  "message": null
-}
-```
-
-Los tokens van dentro de `data`. Usa `data.access` como `Authorization: Bearer <token>` en
-el resto de llamadas, y renuévalo con `POST /api/auth/refresh` enviando
-`{ "refresh": "..." }` cuando sea necesario (el access dura 30 minutos).
-
-### 26.3.2 URLs útiles
+### 25.3.2 URLs útiles
 
 | URL | Descripción |
 |---|---|
@@ -1764,31 +1513,7 @@ el resto de llamadas, y renuévalo con `POST /api/auth/refresh` enviando
 | <http://localhost:8000/api/dashboard/summary> | Resumen del tablero en JSON |
 | <http://localhost:8000/api/agent/tools> | Catálogo de las 19 herramientas con su JSON Schema |
 
-### 26.3.3 Ejemplos de consulta
-
-```powershell
-$TOKEN = "<tu_access_token>"
-$H = @{ Authorization = "Bearer $TOKEN" }
-
-# Existencias del producto 680
-Invoke-RestMethod http://localhost:8000/api/inventory/680 -Headers $H
-
-# Riesgo de desabasto (solo riesgo ALTO, 10 resultados)
-Invoke-RestMethod "http://localhost:8000/api/analytics/stockout?risk_min=ALTO&limit=10" -Headers $H
-
-# Caducidades en los próximos 30 días
-Invoke-RestMethod "http://localhost:8000/api/analytics/expiration?severity=ALTO" -Headers $H
-
-# Catálogo de herramientas del agente
-Invoke-RestMethod http://localhost:8000/api/agent/tools -Headers $H
-
-# Ejecutar una herramienta a mano
-Invoke-RestMethod -Method Post http://localhost:8000/api/agent/tools/analizar_desabasto/execute `
-  -Headers $H -ContentType "application/json" `
-  -Body '{"parameters":{"riesgo_minimo":"ALTO","limite":5},"conversation_id":"manual","user_request":"prueba"}'
-```
-
-### 26.3.4 Mapa completo de endpoints
+### 25.3.4 Mapa completo de endpoints
 
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
@@ -1825,7 +1550,7 @@ Invoke-RestMethod -Method Post http://localhost:8000/api/agent/tools/analizar_de
 > `alerts` usa `DefaultRouter`, así que **lleva barra final** (`/api/alerts/`). El resto usa
 > `SimpleRouter` y **no** lleva barra final.
 
-### 26.3.5 Envoltura de respuestas y errores
+### 25.3.5 Envoltura de respuestas y errores
 
 Éxito:
 
@@ -1856,43 +1581,12 @@ Error controlado:
 Listados paginados: `count`, `page`, `page_size` (20 por defecto, máx. 100), `next`,
 `previous`, `results`. Orden con `?ordering=campo` y `?ordering=-campo`.
 
-## 26.4 Acceder a la base de datos
-
-```powershell
-docker compose exec db psql -U <tu_usuario> -d Adventureworks
-```
-
-Desde ahí puedes inspeccionar los dos conjuntos de datos:
-
-| Esquema | Contenido | Permisos del sistema |
-|---|---|---|
-| `production`, `sales`, `purchasing`, `person`, `humanresources` | AdventureWorks original (504 productos) | Solo lectura (`managed=False`) |
-| `inventory_agent` | `lotes`, `alertas`, `analisis`, `pronosticos`, `configuracion_riesgo`, `agent_tool_log` + tablas de Django | Lectura y escritura |
-
-## 26.5 Acceder como administrador
-
-<http://localhost:8000/admin/> con el superusuario creado por `ensure_superuser`. Desde ahí
-gestonas usuarios y roles, lotes, alertas, umbrales de riesgo y consultas al historial de
-ejecuciones del agente.
-
-Para asignar roles a un usuario existente:
-
-```powershell
-docker compose exec api python manage.py shell -c "
-from django.contrib.auth.models import User, Group
-u = User.objects.get(username='<usuario>')
-u.groups.add(Group.objects.get(name='analyst'))
-"
-```
-
----
-
-# 27. Batería de preguntas para probar el sistema
+# 26. Batería de preguntas para probar el sistema
 
 > **Cómo usar esta sección**
 >
-> - **Preguntas para el chat** (27.1 a 27.18): pega el texto tal cual en
->   <http://localhost:5173> o en `POST /chat`. La columna *Herramienta esperada* indica qué
+> - **Preguntas para el chat**: pega el texto tal cual en
+>   <http://localhost:5173>. La columna *Herramienta esperada* indica qué
 >   herramienta **debería** activar el agente; sirve para verificar que no está inventando
 >   una ruta alternativa.
 > - **Comprobaciones de API** (27.19 y 27.20): validan la API y la base de datos directamente,
@@ -1904,7 +1598,7 @@ u.groups.add(Group.objects.get(name='analyst'))
 > - Los identificadores de ejemplo (`680`, `876`, `776`, ubicación `6`) salen del dataset
 >   AdventureWorks. Puedes sustituirlos por los que aparezcan en tus respuestas.
 
-## 27.1 Smoke test: las 8 preguntas sugeridas de la UI
+## 26.1 Smoke test: las 8 preguntas sugeridas de la UI
 
 Empiecen por aquí: son los botones de la pantalla inicial y cubren las 8 familias de
 análisis.
@@ -1920,7 +1614,7 @@ análisis.
 | 7 | `¿Cuántas existencias hay del producto 680 y en qué ubicaciones?` | `obtener_existencias` |
 | 8 | `Muéstrame las alertas pendientes` | `obtener_alertas` |
 
-## 27.2 Panorama general e indicadores
+## 26.2 Panorama general e indicadores
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -1937,7 +1631,7 @@ análisis.
 | 19 | `¿Desde qué fecha se están calculando estos análisis?` | cualquier tool (debe mencionar `as_of_date`) |
 | 20 | `Haz un diagnóstico completo del estado del inventario` | varias (analizadores combinados) |
 
-## 27.3 Existencias y ubicaciones
+## 26.3 Existencias y ubicaciones
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -1952,7 +1646,7 @@ análisis.
 | 29 | `Compara las existencias del producto 680 entre dos ubicaciones` | `obtener_existencias` |
 | 30 | `¿Hay algún producto con existencia cero?` | `obtener_existencias` |
 
-## 27.4 Búsqueda y catálogo de productos
+## 26.4 Búsqueda y catálogo de productos
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -1967,7 +1661,7 @@ análisis.
 | 39 | `¿Cuántos modelos de bicicleta hay?` | `buscar_productos` |
 | 40 | `Encuentra productos que contengan "Mountain" y dime su precio` | `buscar_productos` |
 
-## 27.5 Riesgo de desabasto
+## 26.5 Riesgo de desabasto
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -1982,7 +1676,7 @@ análisis.
 | 49 | `¿Cuántos productos están en riesgo de nivel ALTO o superior?` | `analizar_desabasto` |
 | 50 | `¿Algún producto en riesgo se queda sin pedidos pendientes?` | `analizar_desabasto` + `obtener_compras` |
 
-## 27.6 Fecha estimada de agotamiento
+## 26.6 Fecha estimada de agotamiento
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -1992,7 +1686,7 @@ análisis.
 | 54 | `¿Cuándo se agotará el Mountain-100 Silver, 38?` | `buscar_productos` + `estimar_fecha_agotamiento` |
 | 55 | `¿Cuánto inventario le queda al producto 776?` | `obtener_existencias` + `estimar_fecha_agotamiento` |
 
-## 27.7 Lotes y caducidades
+## 26.7 Lotes y caducidades
 
 > Requiere `python manage.py seed_lots`.
 
@@ -2009,7 +1703,7 @@ análisis.
 | 64 | `¿Qué lote caduca primero y en qué ubicación está?` | `analizar_caducidades` |
 | 65 | `¿Cuántos días le quedan al lote SEED-680-6-1?` | `obtener_lotes` |
 
-## 27.8 Rotación
+## 26.8 Rotación
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2023,7 +1717,7 @@ análisis.
 | 73 | `¿Qué implicaciones tiene un producto de baja rotación?` | `analizar_rotacion` |
 | 74 | `¿Cuántos productos tienen baja rotación en la categoría Bikes?` | `analizar_rotacion` |
 
-## 27.9 Sobreinventario
+## 26.9 Sobreinventario
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2034,7 +1728,7 @@ análisis.
 | 79 | `¿Qué producto tiene más capital inmovilizado?` | `analizar_sobreinventario` + `obtener_existencias` |
 | 80 | `¿Cuántos días de cobertura tienen los productos sobreinventariados?` | `analizar_sobreinventario` |
 
-## 27.10 Pronóstico de demanda
+## 26.10 Pronóstico de demanda
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2046,7 +1740,7 @@ análisis.
 | 86 | `¿Cuál es el nivel y la sigma del pronóstico del producto 680?` | `pronosticar_demanda` |
 | 87 | `¿Qué tan confiable es el pronóstico del producto 680?` | `pronosticar_demanda` |
 
-## 27.11 Propuestas de reposición
+## 26.11 Propuestas de reposición
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2060,7 +1754,7 @@ análisis.
 | 95 | `¿Ya hay algo pedido del producto 680?` | `obtener_compras` + `proponer_reposicion` |
 | 96 | `Dame una propuesta de reposición para todos los productos en riesgo crítico` | `proponer_reposicion` + `analizar_desabasto` |
 
-## 27.12 Propuestas de redistribución
+## 26.12 Propuestas de redistribución
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2071,7 +1765,7 @@ análisis.
 | 101 | `¿Qué traspasos propones para la categoría Bikes?` | `proponer_redistribucion` |
 | 102 | `¿Cuántas unidades se podrían liberar trasladando stock entre bodegas?` | `proponer_redistribucion` |
 
-## 27.13 Ventas, compras, proveedores y movimientos
+## 26.13 Ventas, compras, proveedores y movimientos
 
 | # | Pregunta | Herramienta esperada |
 |--:|---|---|
@@ -2091,7 +1785,7 @@ análisis.
 | 116 | `¿Cuánto tarda el proveedor del producto 680 en entregar?` | `obtener_proveedores` |
 | 117 | `¿Cuántas unidades tiene pedido mínimo y máximo el proveedor del producto 680?` | `obtener_proveedores` |
 
-## 27.14 Alertas — consultas (no escriben)
+## 26.14 Alertas — consultas (no escriben)
 
 > Requiere `python manage.py generate_alerts`.
 
@@ -2108,7 +1802,7 @@ análisis.
 | 126 | `¿Qué alertas son de sobreinventario?` | `obtener_alertas` (`tipo=SOBREINVENTARIO`) |
 | 127 | `¿Qué alertas de agotamiento estimado hay?` | `obtener_alertas` (`tipo=AGOTAMIENTO_ESTIMADO`) |
 
-## 27.15 Alertas — acciones que escriben
+## 26.15 Alertas — acciones que escriben
 
 > Las preguntas de esta sección **modifican la base de datos**. Las de `atender_alerta`
 > necesitan un `alerta_id` real: obténlo antes con la pregunta 118 o con la 128.
@@ -2123,7 +1817,7 @@ análisis.
 
 Verificación: `Muéstrame las alertas del producto 680` debe reflejar los cambios.
 
-## 27.16 Pruebas de contexto y memoria
+## 26.16 Pruebas de contexto y memoria
 
 Ejecuta cada bloque **sin** cambiar `session_id` ni pulsar "Nueva conversación". Si el
 agente responde "de esos" o con pronombres, la memoria funciona.
@@ -2138,7 +1832,7 @@ agente responde "de esos" o con pronombres, la memoria funciona.
 | 138 | `Busca productos que contengan "Road"` → `¿Cuánto inventario tienen?` | De búsqueda a existencias sin repetir el nombre |
 | 139 | `Analiza la rotación del inventario` → `Dame solo los de alta rotación, en formato de lista simple` | Ajuste de formato de salida |
 
-## 27.17 Pruebas de control de calidad (el agente debe fallar bien)
+## 26.17 Pruebas de control de calidad (el agente debe fallar bien)
 
 Estas comprueban que el sistema **no alucina** y respeta sus límites. Todas deben ser
 respuestas honestas.
@@ -2159,7 +1853,7 @@ respuestas honestas.
 | 151 | `Analiza el inventario de la categoría Inventada` | Dice que esa categoría no existe |
 | 152 | `¿Qué predicciones harás mañana sobre las ventas?` | Aclara que solo puede usar datos históricos |
 
-## 27.18 Pruebas de robustez y formato
+## 26.18 Pruebas de robustez y formato
 
 | # | Pregunta | Qué se valida |
 |--:|---|---|
@@ -2175,103 +1869,3 @@ respuestas honestas.
 | 162 | `Compara el producto 680 con el 876 en inventario, ventas y riesgo` | Comparativa estructurada |
 | 163 | `¿Qué alerted hay abiertas?` (typo) | Tolera errores ortográficos |
 | 164 | `¿produtos con bajo stock?` (sin acentos) | Tolera falta de acentos |
-
-## 27.19 Comprobaciones directas de la API (sin LLM)
-
-Valida el backend de forma determinista. Repite los ejemplos de la
-[sección 26.3](#263-acceso-a-la-api-rest) para ver los cuerpos completos.
-
-| # | Comprobación | Criterio de aceptación |
-|--:|---|---|
-| 165 | `GET /health` del agente | 200 con `{"status":"ok"}` |
-| 166 | `GET /api/ping` sin token | 401 `NOT_AUTHENTICATED` |
-| 167 | `POST /api/auth/token` con credenciales correctas | 200 con `data.access` y `data.refresh` |
-| 168 | `POST /api/auth/token` con credenciales incorrectas | 401 |
-| 169 | `GET /api/ping` con token válido | 200 con el usuario |
-| 170 | `GET /api/products?search=road` | Lista con `count` y `results` |
-| 171 | `GET /api/products/{id_inexistente}` | 404 `PRODUCT_NOT_FOUND` |
-| 172 | `GET /api/inventory/680` | Totales por ubicación |
-| 173 | `GET /api/analytics/stockout?risk_min=ALTO&limit=5` | Solo riesgos ≥ ALTO, máximo 5 filas |
-| 174 | `GET /api/analytics/depletion/680` | Fecha estimada o `null` con motivo |
-| 175 | `GET /api/analytics/expiration?severity=ALTO` | Lotes por urgencia |
-| 176 | `GET /api/analytics/inventory` | Totales, días de inventario, valor por categoría |
-| 177 | `POST /api/forecast` con `{"product_id": 680, "forecast_days": 30}` | `level`, `sigma`, serie `forecast[]` |
-| 178 | `POST /api/forecast` con `{"product_id": 680, "historical_days": 5}` | Incluye `warning: "Historial insuficiente"` |
-| 179 | `POST /api/recommendations/replenishment` con `{"product_id": 680}` | `is_proposal: true` y `justification`; **no** crea orden |
-| 180 | `POST /api/recommendations/redistribution` | Traspasos propuestos; **no** persiste |
-| 181 | `GET /api/agent/tools` | 19 herramientas con `name`, `description`, `input_schema` |
-| 182 | `POST /api/agent/tools/analizar_desabasto/execute` con parámetros válidos | 200 con `success: true` |
-| 183 | `POST /api/agent/tools/no_existe/execute` | 200 con `success: false`, `code: TOOL_NOT_FOUND` |
-| 184 | `POST /api/agent/tools/analizar_desabasto/execute` con `limite: -5` | 200 con `code: VALIDATION_ERROR` |
-| 185 | `POST /api/agent/tools/analizar_desabasto/execute` sin token | 401 |
-| 186 | `POST /api/agent/tools/crear_alerta/execute` con rol `viewer` | 403 `PERMISSION_DENIED` |
-| 187 | `POST /api/agent/tools/crear_alerta/execute` con rol `inventory_manager` | 200 con `success: true` |
-| 188 | `POST /api/lots` duplicando producto + ubicación + número de lote | 409 `DUPLICATE_LOT` |
-| 189 | `PATCH /api/lots/{id}` con cantidad negativa | 400 `VALIDATION_ERROR` |
-| 190 | `DELETE /api/lots/{id}` | Baja lógica: el lote pasa a `ELIMINADO`, no se borra |
-| 191 | `PATCH /api/alerts/{id}/` con `{"status": "ATENDIDA"}` | 200, la alerta queda cerrada |
-| 192 | `PATCH /api/alerts/{id}/` sobre una alerta ya cerrada | 409 `ALERT_ALREADY_CLOSED` |
-| 193 | `DELETE /api/alerts/{id}/` | 405 `METHOD_NOT_ALLOWED` (las alertas se cierran, no se borran) |
-| 194 | `GET /api/risk-config?product_id=680` | Parámetros resueltos con precedencia producto > categoría > global |
-| 195 | `PATCH /api/risk-config` con `{"product_id": 680, "min_stock": 500}` | 201 si crea la capa, 200 si la actualiza |
-| 196 | `GET /api/analytics/stockout` después del 195 | Refleja el nuevo umbral |
-| 197 | `GET /api/dashboard/summary` | Las 8 claves KPI presentes; cacheado 120 s |
-| 198 | 121 llamadas seguidas a `/api/agent/tools/*/execute` en 1 minuto | 429 `THROTTLED` en las que excedan |
-| 199 | `GET /api/inventory?page_size=500` | `page_size` limitado a 100 |
-| 200 | `GET /api/products?ordering=-list_price` | Orden descendente correcto |
-| 201 | `POST /chat` sin `message` | 422 |
-| 202 | `POST /chat` con `message: "   "` | 400 |
-| 203 | `POST /chat/reset` con `session_id` nuevo | `{"status": "reset"}` |
-| 204 | `GET /admin/` con superusuario | Panel de administración accesible |
-| 205 | `GET /api/docs/` con token | Swagger UI carga |
-
-## 27.20 Comprobaciones de la base de datos
-
-| # | Consulta | Resultado esperado |
-|--:|---|---|
-| 206 | `select count(*) from production.product;` | `504` |
-| 207 | `select count(*) from production.productinventory;` | Varios miles de filas |
-| 208 | `select count(*) from inventory_agent.lotes;` | 0 antes de `seed_lots`, > 0 después |
-| 209 | `select count(*) from inventory_agent.alertas;` | 0 antes de `generate_alerts`, > 0 después |
-| 210 | `select tool, count(*) from inventory_agent.agent_tool_log group by tool;` | Trazas de las herramientas usadas |
-| 211 | `select count(*) from inventory_agent.analisis;` | Un registro por análisis ejecutado |
-| 212 | `select * from inventory_agent.agent_tool_log where success = false;` | Errores con su `message` |
-| 213 | `update production.product set name = 'x';` | **Debe fallar o ignorarse**: AdventureWorks es solo lectura en la app |
-| 214 | Tablas de Django en `inventory_agent` (`auth_user`, `django_migrations`) | Confirma que el aislamiento de esquemas funciona |
-
-## 27.21 Prueba E2E automatizada
-
-La forma más objetiva de cerrar la validación:
-
-```powershell
-cd agente_inventario
-python e2e_runner.py
-```
-
-Imprime una línea por prompt con el resultado y deja el detalle en `e2e_report.json`:
-
-```text
-[OK  ]  12.4s  tools=['analizar_desabasto']  prompt='¿Qué productos tienen riesgo de agotarse?'
-[OK  ]  18.1s  tools=['proponer_reposicion', 'analizar_desabasto']  prompt='¿Qué productos debería reponer primero?'
-
-Prompts: 19 | tool esperada invocada: 19/19 | respuesta válida: 19/19 | tool calls OK: 34/34
-```
-
-Salida esperada: **19/19** prompts con la herramienta esperada invocada y respuesta válida.
-
----
-
-## Resumen de la parte operativa
-
-| Necesito… | Ve a… |
-|---|---|
-| Entender la arquitectura | [Sección 24](#24-cómo-funciona-el-sistema) |
-| Levantar el sistema con Docker | [Sección 25.2](#252-opción-a--todo-con-docker-recomendada) |
-| Instalar sin Docker | [Sección 25.3](#253-opción-b--instalación-local-sin-docker) |
-| Abrir el chat | <http://localhost:5173> |
-| Probar la API | [Sección 26.3](#263-acceso-a-la-api-rest) |
-| Ver el detalle de una herramienta | <http://localhost:8000/api/agent/tools> |
-| Probar el agente con preguntas | [Sección 27](#27-batería-de-preguntas-para-probar-el-sistema) |
-| Verificar que no alucina | [Sección 27.17](#2717-pruebas-de-control-de-calidad-el-agente-debe-fallar-bien) |
-| Validar la API sin LLM | [Sección 27.19](#2719-comprobaciones-directas-de-la-api-sin-llm) |
-| Ver qué herramientas se ejecutan | `docker compose logs -f agent` |
